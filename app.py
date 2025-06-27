@@ -13,10 +13,7 @@ app = Flask(__name__)
 CORS(app)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ---------------- GPT-2 Chatbot Setup ----------------
-# GPT-2 removed to reduce memory usage on free tier.
-
-# ---------------- Database Analysis & Utility ----------------
+# ---------------- Utility Functions ----------------
 
 def fetch_single(cur, query, default=0):
     try:
@@ -49,11 +46,9 @@ def get_top_subtask(cur):
             LIMIT 1
         """)
         row = cur.fetchone()
-        if row:
-            return row[0], row[1]
+        return (row[0], row[1]) if row else (None, 0)
     except Exception:
-        pass
-    return None, 0
+        return (None, 0)
 
 def get_overspending_days(cur, plan_budget):
     try:
@@ -76,12 +71,10 @@ def analyze_db(db_path, filename):
 
         cur.execute("SELECT date, saving FROM daily_budget ORDER BY date DESC LIMIT 1")
         row = cur.fetchone()
-        today_saving = row[1] if row else 0
-        today_date = row[0] if row else "N/A"
+        today_date, today_saving = (row[0], row[1]) if row else ("N/A", 0)
 
         plan_budget = fetch_single(cur, "SELECT planBudget FROM daily_budget ORDER BY date DESC LIMIT 1")
         goal_saving = 0.2 * plan_budget
-
         saving_vs_goal = today_saving - goal_saving
 
         top_categories = get_top_categories(cur, 5)
@@ -93,9 +86,7 @@ def analyze_db(db_path, filename):
         print(f"Error analyzing DB: {e}")
         today_saving = 0
         today_date = "N/A"
-        plan_budget = 0
         goal_saving = 0
-        saving_vs_goal = 0
         top_categories = []
         top_subtask = None
         top_subtask_amt = 0
@@ -123,24 +114,22 @@ def analyze_db(db_path, filename):
     <section class="insights">
       <h2>Insights & Highlights</h2>
       <ol>
-        <li>
-          <strong>What affected your goal today?</strong>
-          <ul>
-    """
+        <li><strong>What affected your goal today?</strong><ul>"""
+
     if today_saving >= goal_saving:
         summary_html += "<li class='success'>You've reached your savings goal for today.</li>"
     else:
         summary_html += "<li>Review major expenses and higher spending days.</li>"
         if top_categories:
             summary_html += "<li>Main categories impacting your savings: "
-            summary_html += ", ".join(f"<b>{cat}</b>" for cat, _ in top_categories[:2])
-            summary_html += "</li>"
+            summary_html += ", ".join(f"<b>{cat}</b>" for cat, _ in top_categories[:2]) + "</li>"
+
     summary_html += "</ul></li>"
 
     if top_categories:
-        summary_html += "<li><b>Top Spending Categories:</b> "
-        summary_html += ", ".join(f"{cat} <span class='amount'>({amt:.2f} OMR)</span>" for cat, amt in top_categories)
-        summary_html += "</li>"
+        summary_html += "<li><b>Top Spending Categories:</b> " + ", ".join(
+            f"{cat} <span class='amount'>({amt:.2f} OMR)</span>" for cat, amt in top_categories
+        ) + "</li>"
     else:
         summary_html += "<li>No spending category data available.</li>"
 
@@ -158,15 +147,15 @@ def analyze_db(db_path, filename):
         summary_html += "<li>No days of overspending detected.</li>"
 
     summary_html += "</ol></section>"
-
     return summary_html
 
-# ---------------- File Upload & Report Endpoint ----------------
+# ---------------- Upload Endpoint ----------------
 
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
@@ -182,87 +171,27 @@ def upload():
     <head>
         <meta charset="UTF-8">
         <title>AI Analyzer Report</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-            :root {{
-                --accent: #355c7d;
-                --success: #2a9d8f;
-                --fail: #e63946;
-                --bg: #f8f9fa;
-                --panel: #fff;
-                --muted: #888;
-                --overspent: #e63946;
-                --amount: #22223b;
-            }}
             body {{
-                font-family: 'Segoe UI', Arial, sans-serif;
-                margin: 0;
-                background: var(--bg);
-                color: var(--amount);
+                font-family: Arial, sans-serif;
+                background: #f4f4f4;
+                color: #222;
+                padding: 20px;
             }}
             .container {{
                 max-width: 700px;
-                margin: 40px auto;
-                padding: 24px 28px 28px 28px;
-                background: var(--panel);
-                border-radius: 18px;
-                box-shadow: 0 4px 32px rgba(53,92,125,0.07);
+                margin: auto;
+                background: #fff;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
             }}
-            h1 {{
-                color: var(--accent);
-                font-size: 2.2em;
-                margin-bottom: 0.1em;
-                letter-spacing: -1px;
-            }}
-            h2 {{
-                color: var(--accent);
-                margin-top: 1.2em;
-                margin-bottom: 0.4em;
-                font-size: 1.32em;
-            }}
-            ul, ol {{
-                padding-left: 1.5em;
-            }}
-            .goal, .insights {{
-                margin-bottom: 1.5em;
-            }}
-            .success {{
-                color: var(--success) !important;
-                font-weight: 600;
-            }}
-            .fail {{
-                color: var(--fail) !important;
-                font-weight: 600;
-            }}
-            .amount {{
-                color: var(--amount);
-                font-weight: 500;
-            }}
-            .overspent {{
-                color: var(--overspent);
-                font-weight: 600;
-            }}
-            .compare {{
-                color: var(--muted);
-                font-size: 0.95em;
-                margin-left: 0.5em;
-            }}
-            .date {{
-                color: var(--muted);
-                font-size: 0.98em;
-                margin-left: 0.2em;
-            }}
-            hr {{
-                border: none;
-                border-top: 1.5px solid #eee;
-                margin: 32px 0 24px 0;
-            }}
-            .footer {{
-                margin-top: 2em;
-                font-size: .97em;
-                color: var(--muted);
-                text-align: right;
-            }}
+            h1 {{ color: #355c7d; }}
+            .success {{ color: green; font-weight: bold; }}
+            .fail {{ color: red; font-weight: bold; }}
+            .amount {{ color: #333; font-weight: bold; }}
+            .overspent {{ color: red; font-weight: bold; }}
+            .date, .compare {{ color: #888; font-size: 0.9em; }}
         </style>
     </head>
     <body>
