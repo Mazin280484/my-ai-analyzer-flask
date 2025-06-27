@@ -3,8 +3,6 @@ from flask_cors import CORS
 import os
 import sqlite3
 from datetime import datetime
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-import torch
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -16,37 +14,7 @@ CORS(app)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------------- GPT-2 Chatbot Setup ----------------
-print("Loading GPT-2 model...")
-model_name = "distilgpt2"  # smaller distilled model to save memory
-device = torch.device("cpu")  # force CPU usage
-
-tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-model = GPT2LMHeadModel.from_pretrained(model_name).to(device)
-print("GPT-2 model loaded.")
-
-def generate_gpt2_reply(prompt, max_length=60):
-    inputs = tokenizer.encode(prompt, return_tensors="pt").to(device)
-    outputs = model.generate(
-        inputs,
-        max_length=max_length,
-        pad_token_id=tokenizer.eos_token_id,
-        do_sample=True,
-        top_k=50,
-        top_p=0.95
-    )
-    reply = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    if reply.startswith(prompt):
-        reply = reply[len(prompt):]
-    return reply.strip()
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    data = request.get_json()
-    prompt = data.get("message", "")
-    if not prompt.strip():
-        return jsonify({"error": "No input message provided"}), 400
-    reply = generate_gpt2_reply(prompt)
-    return jsonify({"response": reply})
+# GPT-2 removed to reduce memory usage on free tier.
 
 # ---------------- Database Analysis & Utility ----------------
 
@@ -143,7 +111,7 @@ def analyze_db(db_path, filename):
         <li>
           Progress: 
           <span class="{'success' if today_saving >= goal_saving else 'fail'}">
-            {'Goal achieved' if today_saving >= goal_saving else 'Target not met'}
+            {'Goal achieved!' if today_saving >= goal_saving else 'Target not met'}
           </span>
           <span class="compare">
             ({today_saving:.2f} OMR vs {goal_saving:.2f} OMR)
@@ -160,9 +128,9 @@ def analyze_db(db_path, filename):
           <ul>
     """
     if today_saving >= goal_saving:
-        summary_html += "<li class='success'>You reached your savings goal for today.</li>"
+        summary_html += "<li class='success'>You've reached your savings goal for today.</li>"
     else:
-        summary_html += "<li>Monitor major expenses and days with higher spending.</li>"
+        summary_html += "<li>Review major expenses and higher spending days.</li>"
         if top_categories:
             summary_html += "<li>Main categories impacting your savings: "
             summary_html += ", ".join(f"<b>{cat}</b>" for cat, _ in top_categories[:2])
