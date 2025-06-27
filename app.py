@@ -20,7 +20,8 @@ def fetch_single(cur, query, default=0):
         cur.execute(query)
         row = cur.fetchone()
         return row[0] if row and row[0] is not None else default
-    except Exception:
+    except Exception as e:
+        print(f"fetch_single error: {e}")
         return default
 
 def get_top_categories(cur, limit=5):
@@ -33,7 +34,8 @@ def get_top_categories(cur, limit=5):
             LIMIT ?
         """, (limit,))
         return cur.fetchall()
-    except Exception:
+    except Exception as e:
+        print(f"get_top_categories error: {e}")
         return []
 
 def get_top_subtask(cur):
@@ -47,7 +49,8 @@ def get_top_subtask(cur):
         """)
         row = cur.fetchone()
         return (row[0], row[1]) if row else (None, 0)
-    except Exception:
+    except Exception as e:
+        print(f"get_top_subtask error: {e}")
         return (None, 0)
 
 def get_overspending_days(cur, plan_budget):
@@ -61,7 +64,8 @@ def get_overspending_days(cur, plan_budget):
             ORDER BY total DESC
         """, (plan_budget,))
         return cur.fetchall()
-    except Exception:
+    except Exception as e:
+        print(f"get_overspending_days error: {e}")
         return []
 
 def analyze_db(db_path, filename):
@@ -211,10 +215,14 @@ def upload():
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(html)
 
-    return jsonify({'success': True, 'report_url': f'http://{request.host}/report'}), 200
+    # Use HTTPS for report_url if on Render or if request is secure
+    scheme = "https" if request.is_secure or "onrender.com" in request.host else "http"
+    return jsonify({'success': True, 'report_url': f'{scheme}://{request.host}/report'}), 200
 
 @app.route('/report', methods=['GET'])
 def report():
+    if not os.path.exists(REPORT_FILE):
+        return "<h1>AI Analyzer Report</h1><p>No analysis yet.</p>", 200
     return send_file(REPORT_FILE)
 
 if __name__ == '__main__':
