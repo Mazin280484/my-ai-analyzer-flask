@@ -4,6 +4,7 @@ import os
 import sqlite3
 from datetime import datetime
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
+import torch
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -16,13 +17,15 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------------- GPT-2 Chatbot Setup ----------------
 print("Loading GPT-2 model...")
-model_name = "distilgpt2"
+model_name = "distilgpt2"  # smaller distilled model to save memory
+device = torch.device("cpu")  # force CPU usage
+
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-model = GPT2LMHeadModel.from_pretrained(model_name)
+model = GPT2LMHeadModel.from_pretrained(model_name).to(device)
 print("GPT-2 model loaded.")
 
-def generate_gpt2_reply(prompt, max_length=120):
-    inputs = tokenizer.encode(prompt, return_tensors="pt")
+def generate_gpt2_reply(prompt, max_length=60):
+    inputs = tokenizer.encode(prompt, return_tensors="pt").to(device)
     outputs = model.generate(
         inputs,
         max_length=max_length,
@@ -134,11 +137,11 @@ def analyze_db(db_path, filename):
     <section class="goal">
       <h2>Savings Overview</h2>
       <ul>
-        <li><strong>Target:</strong> Save 20% of Planned Budget</li>
+        <li><strong>Target: Save 20% of Planned Budget</strong></li>
         <li>Today's Savings <span class="date">({today_date})</span>: <span class="amount">{today_saving:.2f} OMR</span></li>
         <li>Target Savings: <span class="amount">{goal_saving:.2f} OMR</span></li>
         <li>
-          Progress:
+          Progress: 
           <span class="{'success' if today_saving >= goal_saving else 'fail'}">
             {'Goal achieved' if today_saving >= goal_saving else 'Target not met'}
           </span>
@@ -157,11 +160,11 @@ def analyze_db(db_path, filename):
           <ul>
     """
     if today_saving >= goal_saving:
-        summary_html += "<li class='success'>You've reached your savings goal for today.</li>"
+        summary_html += "<li class='success'>You reached your savings goal for today.</li>"
     else:
-        summary_html += "<li>Review high expenses and budget breakdown.</li>"
+        summary_html += "<li>Monitor major expenses and days with higher spending.</li>"
         if top_categories:
-            summary_html += "<li>Main categories impacting savings: "
+            summary_html += "<li>Main categories impacting your savings: "
             summary_html += ", ".join(f"<b>{cat}</b>" for cat, _ in top_categories[:2])
             summary_html += "</li>"
     summary_html += "</ul></li>"
@@ -187,6 +190,7 @@ def analyze_db(db_path, filename):
         summary_html += "<li>No days of overspending detected.</li>"
 
     summary_html += "</ol></section>"
+
     return summary_html
 
 # ---------------- File Upload & Report Endpoint ----------------
@@ -255,11 +259,11 @@ def upload():
                 margin-bottom: 1.5em;
             }}
             .success {{
-                color: var(--success);
+                color: var(--success) !important;
                 font-weight: 600;
             }}
             .fail {{
-                color: var(--fail);
+                color: var(--fail) !important;
                 font-weight: 600;
             }}
             .amount {{
@@ -315,3 +319,9 @@ def upload():
 @app.route('/report', methods=['GET'])
 def report():
     return send_file(REPORT_FILE)
+
+if __name__ == '__main__':
+    if not os.path.exists(REPORT_FILE):
+        with open(REPORT_FILE, "w", encoding="utf-8") as f:
+            f.write("<h1>AI Analyzer Report</h1><p>No analysis yet.</p>")
+    app.run(host='0.0.0.0', port=PORT, debug=True)
