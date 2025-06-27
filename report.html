@@ -1,0 +1,126 @@
+
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>AI Analyzer Report</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            :root {
+                --accent: #355c7d;
+                --success: #2a9d8f;
+                --fail: #e63946;
+                --bg: #f8f9fa;
+                --panel: #fff;
+                --muted: #888;
+                --overspent: #e63946;
+                --amount: #22223b;
+            }
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                margin: 0;
+                background: var(--bg);
+                color: var(--amount);
+            }
+            .container {
+                max-width: 700px;
+                margin: 40px auto;
+                padding: 24px 28px 28px 28px;
+                background: var(--panel);
+                border-radius: 18px;
+                box-shadow: 0 4px 32px rgba(53,92,125,0.07);
+            }
+            h1 {
+                color: var(--accent);
+                font-size: 2.2em;
+                margin-bottom: 0.1em;
+                letter-spacing: -1px;
+            }
+            h2 {
+                color: var(--accent);
+                margin-top: 1.2em;
+                margin-bottom: 0.4em;
+                font-size: 1.32em;
+            }
+            ul, ol {
+                padding-left: 1.5em;
+            }
+            .goal, .insights {
+                margin-bottom: 1.5em;
+            }
+            .success {
+                color: var(--success) !important;
+                font-weight: 600;
+            }
+            .fail {
+                color: var(--fail) !important;
+                font-weight: 600;
+            }
+            .amount {
+                color: var(--amount);
+                font-weight: 500;
+            }
+            .overspent {
+                color: var(--overspent);
+                font-weight: 600;
+            }
+            .compare {
+                color: var(--muted);
+                font-size: 0.95em;
+                margin-left: 0.5em;
+            }
+            .date {
+                color: var(--muted);
+                font-size: 0.98em;
+                margin-left: 0.2em;
+            }
+            hr {
+                border: none;
+                border-top: 1.5px solid #eee;
+                margin: 32px 0 24px 0;
+            }
+            .footer {
+                margin-top: 2em;
+                font-size: .97em;
+                color: var(--muted);
+                text-align: right;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>AI Analyzer Report</h1>
+            
+    <section class="goal">
+      <h2>🌟 Savings Overview</h2>
+      <ul>
+        <li>🟨 <strong>Target: Save 20% of Planned Budget</strong></li>
+        <li>Today's Savings <span class="date">(2025-06-26)</span>: <span class="amount">-20.00 OMR</span></li>
+        <li>Target Savings: <span class="amount">20.00 OMR</span></li>
+        <li>
+          Progress: 
+          <span class="fail">
+            ❌ Target not met
+          </span>
+          <span class="compare">
+            (-20.00 OMR vs 20.00 OMR)
+          </span>
+        </li>
+      </ul>
+    </section>
+    <hr>
+    <section class="insights">
+      <h2>🔍 Insights & Highlights</h2>
+      <ol>
+        <li>
+          <strong>What affected your goal today?</strong>
+          <ul>
+    <li>Keep an eye on your major expenses and review days with higher spending.</li><li>Main categories impacting your savings: <b>Food/Groceries</b>, <b>Gifts/Celebration</b></li></ul></li><li><b>Top Spending Categories:</b> Food/Groceries <span class='amount'>(120.00 OMR)</span>, Gifts/Celebration <span class='amount'>(75.00 OMR)</span>, Others <span class='amount'>(50.00 OMR)</span>, Loans/Debts/Donations <span class='amount'>(50.00 OMR)</span>, Entertainment/Leisure <span class='amount'>(30.00 OMR)</span></li><li><b>Highest Expense Sub-task:</b> Restaurants <span class='amount'>(120.00 OMR)</span></li><li><b>Days Exceeding Budget:</b><ul><li>2025-06-26: <span class='amount overspent'>325.00 OMR</span></li></ul></li></ol></section>
+            <hr>
+            <div class="footer">
+                <b>Last uploaded DB:</b> budget_app.db<br>
+                <b>Generated:</b> 2025-06-26 14:00:50
+            </div>
+        </div>
+    </body>
+    </html>
+    

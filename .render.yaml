@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: my-ai-analyzer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
+    envVars:
+      - key: FLASK_ENV
+        value: production
