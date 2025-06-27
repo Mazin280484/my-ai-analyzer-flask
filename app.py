@@ -225,6 +225,12 @@ def report():
         return "<h1>AI Analyzer Report</h1><p>No analysis yet.</p>", 200
     return send_file(REPORT_FILE)
 
+# ---------------- Root Welcome Endpoint ----------------
+
+@app.route('/', methods=['GET'])
+def index():
+    return "<h1>AI Analyzer Backend Running</h1><p>Use /upload (POST) to upload a database and /report (GET) to see the latest report.</p>", 200
+
 if __name__ == '__main__':
     if not os.path.exists(REPORT_FILE):
         with open(REPORT_FILE, "w", encoding="utf-8") as f:
