@@ -7,7 +7,7 @@ from datetime import datetime
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 REPORT_FILE = os.path.join(BASE_DIR, 'report.html')
-PORT = 5000
+PORT = int(os.environ.get("PORT", 5000))  # Use $PORT if set (for Render), else 5000 locally
 
 app = Flask(__name__)
 CORS(app)
