@@ -109,7 +109,7 @@ def analyze_db(db_path, filename):
         last7_top_categories = []
         last7_top_subtasks = []
 
-    # Section: Highlights
+    # Section: Highlights (removed the bottom statement about (X) and file path)
     summary_html = f"""
     <section class="highlights-section">
       <h2>Highlights</h2>
@@ -144,8 +144,6 @@ def analyze_db(db_path, filename):
             </ul>
           </li>
         </ul>
-        <div class="hint">(X) is from <code>budget_app.db</code>, Table: <code>daily_budget</code>, number of daily_budget records.<br>
-        Refer to <code>/data/data/com.saveone.app/databases/budget_app.db</code></div>
       </div>
     </section>
     """
@@ -272,12 +270,6 @@ def upload():
                 font-weight: 600;
                 margin-left: 0.15em;
                 letter-spacing: 0.01em;
-            }}
-            .hint {{
-                font-size: 0.93em;
-                color: #888;
-                margin-top: 1.4em;
-                padding-left: 0.2em;
             }}
             .footer {{
                 font-size: 0.98rem;
