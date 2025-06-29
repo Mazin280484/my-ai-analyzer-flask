@@ -24,133 +24,131 @@ def fetch_single(cur, query, default=0):
         print(f"fetch_single error: {e}")
         return default
 
-def get_top_categories(cur, limit=5):
+def get_top_categories(cur, budget_ids, limit=3):
     try:
-        cur.execute("""
+        cur.execute(f"""
             SELECT category, SUM(amount) as total
             FROM tasks
+            WHERE dailyBudgetId IN ({','.join('?' for _ in budget_ids)})
             GROUP BY category
             ORDER BY total DESC
             LIMIT ?
-        """, (limit,))
+        """, (*budget_ids, limit))
         return cur.fetchall()
     except Exception as e:
         print(f"get_top_categories error: {e}")
         return []
 
-def get_top_subtask(cur):
+def get_top_subtasks(cur, budget_ids, limit=3):
     try:
-        cur.execute("""
+        cur.execute(f"""
             SELECT subTask, SUM(amount) as total
             FROM tasks
+            WHERE dailyBudgetId IN ({','.join('?' for _ in budget_ids)})
             GROUP BY subTask
             ORDER BY total DESC
-            LIMIT 1
-        """)
-        row = cur.fetchone()
-        return (row[0], row[1]) if row else (None, 0)
-    except Exception as e:
-        print(f"get_top_subtask error: {e}")
-        return (None, 0)
-
-def get_overspending_days(cur, plan_budget):
-    try:
-        cur.execute("""
-            SELECT date, SUM(amount) as total
-            FROM tasks
-            JOIN daily_budget ON tasks.dailyBudgetId = daily_budget.id
-            GROUP BY date
-            HAVING total > ?
-            ORDER BY total DESC
-        """, (plan_budget,))
+            LIMIT ?
+        """, (*budget_ids, limit))
         return cur.fetchall()
     except Exception as e:
-        print(f"get_overspending_days error: {e}")
+        print(f"get_top_subtasks error: {e}")
         return []
+
+def get_all_budget_ids(cur):
+    try:
+        cur.execute("SELECT id FROM daily_budget ORDER BY date")
+        rows = cur.fetchall()
+        return [row[0] for row in rows]
+    except Exception as e:
+        print(f"get_all_budget_ids error: {e}")
+        return []
+
+def get_last_n_budget_ids(cur, n):
+    try:
+        cur.execute("SELECT id FROM daily_budget ORDER BY date DESC LIMIT ?", (n,))
+        rows = cur.fetchall()
+        return [row[0] for row in rows]
+    except Exception as e:
+        print(f"get_last_n_budget_ids error: {e}")
+        return []
+
+def format_category_list(items):
+    if not items:
+        return "<li>No data available.</li>"
+    return "".join(f"<li><span class='item-label'>{cat}</span> <span class='amount'>({amt:.2f} OMR)</span></li>" for cat, amt in items)
+
+def format_subtask_list(items):
+    if not items:
+        return "<li>No data available.</li>"
+    return "".join(f"<li><span class='item-label'>{subtask}</span> <span class='amount'>({amt:.2f} OMR)</span></li>" for subtask, amt in items)
 
 def analyze_db(db_path, filename):
     try:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
 
-        cur.execute("SELECT date, saving FROM daily_budget ORDER BY date DESC LIMIT 1")
-        row = cur.fetchone()
-        today_date, today_saving = (row[0], row[1]) if row else ("N/A", 0)
+        # Get all budget IDs, last 7 budget IDs, and (X)
+        all_budget_ids = get_all_budget_ids(cur)
+        last7_budget_ids = get_last_n_budget_ids(cur, 7)
+        X = len(all_budget_ids)
 
-        plan_budget = fetch_single(cur, "SELECT planBudget FROM daily_budget ORDER BY date DESC LIMIT 1")
-        goal_saving = 0.2 * plan_budget
-        saving_vs_goal = today_saving - goal_saving
+        # For overall (all records)
+        all_top_categories = get_top_categories(cur, all_budget_ids, 3) if all_budget_ids else []
+        all_top_subtasks = get_top_subtasks(cur, all_budget_ids, 3) if all_budget_ids else []
 
-        top_categories = get_top_categories(cur, 5)
-        top_subtask, top_subtask_amt = get_top_subtask(cur)
-        overspending_days = get_overspending_days(cur, plan_budget)
+        # For last 7 records
+        last7_top_categories = get_top_categories(cur, last7_budget_ids, 3) if last7_budget_ids else []
+        last7_top_subtasks = get_top_subtasks(cur, last7_budget_ids, 3) if last7_budget_ids else []
 
         conn.close()
     except Exception as e:
         print(f"Error analyzing DB: {e}")
-        today_saving = 0
-        today_date = "N/A"
-        goal_saving = 0
-        top_categories = []
-        top_subtask = None
-        top_subtask_amt = 0
-        overspending_days = []
+        X = 0
+        all_top_categories = []
+        all_top_subtasks = []
+        last7_top_categories = []
+        last7_top_subtasks = []
 
+    # Section: Highlights
     summary_html = f"""
-    <section class="goal">
-      <h2>Savings Overview</h2>
-      <ul>
-        <li><strong>Target: Save 20% of Planned Budget</strong></li>
-        <li>Today's Savings <span class="date">({today_date})</span>: <span class="amount">{today_saving:.2f} OMR</span></li>
-        <li>Target Savings: <span class="amount">{goal_saving:.2f} OMR</span></li>
-        <li>
-          Progress: 
-          <span class="{'success' if today_saving >= goal_saving else 'fail'}">
-            {'Goal achieved!' if today_saving >= goal_saving else 'Target not met'}
-          </span>
-          <span class="compare">
-            ({today_saving:.2f} OMR vs {goal_saving:.2f} OMR)
-          </span>
-        </li>
-      </ul>
+    <section class="highlights-section">
+      <h2>Highlights</h2>
+      <div class="highlight-block">
+        <p class="highlight-title"><b>Analyze what factors overall affected your budget across the last ({X}) records</b></p>
+        <ul class="highlight-list">
+          <li>
+            <span class="section-label">Top Spending Categories</span>
+            <ul class="sublist">
+              {format_category_list(all_top_categories)}
+            </ul>
+          </li>
+          <li>
+            <span class="section-label">Top Expenses Sub-Tasks</span>
+            <ul class="sublist">
+              {format_subtask_list(all_top_subtasks)}
+            </ul>
+          </li>
+        </ul>
+        <p class="highlight-title"><b>See what affected your budget in the last 7 records</b></p>
+        <ul class="highlight-list">
+          <li>
+            <span class="section-label">Top Spending Categories</span>
+            <ul class="sublist">
+              {format_category_list(last7_top_categories)}
+            </ul>
+          </li>
+          <li>
+            <span class="section-label">Top Expenses Sub-Tasks</span>
+            <ul class="sublist">
+              {format_subtask_list(last7_top_subtasks)}
+            </ul>
+          </li>
+        </ul>
+        <div class="hint">(X) is from <code>budget_app.db</code>, Table: <code>daily_budget</code>, number of daily_budget records.<br>
+        Refer to <code>/data/data/com.saveone.app/databases/budget_app.db</code></div>
+      </div>
     </section>
-    <hr>
-    <section class="insights">
-      <h2>Insights & Highlights</h2>
-      <ol>
-        <li><strong>What affected your goal today?</strong><ul>"""
-
-    if today_saving >= goal_saving:
-        summary_html += "<li class='success'>You've reached your savings goal for today.</li>"
-    else:
-        summary_html += "<li>Review major expenses and higher spending days.</li>"
-        if top_categories:
-            summary_html += "<li>Main categories impacting your savings: "
-            summary_html += ", ".join(f"<b>{cat}</b>" for cat, _ in top_categories[:2]) + "</li>"
-
-    summary_html += "</ul></li>"
-
-    if top_categories:
-        summary_html += "<li><b>Top Spending Categories:</b> " + ", ".join(
-            f"{cat} <span class='amount'>({amt:.2f} OMR)</span>" for cat, amt in top_categories
-        ) + "</li>"
-    else:
-        summary_html += "<li>No spending category data available.</li>"
-
-    if top_subtask:
-        summary_html += f"<li><b>Highest Expense Sub-task:</b> {top_subtask} <span class='amount'>({top_subtask_amt:.2f} OMR)</span></li>"
-    else:
-        summary_html += "<li>No sub-task data available.</li>"
-
-    if overspending_days:
-        summary_html += "<li><b>Days Exceeding Budget:</b><ul>"
-        for date, total in overspending_days[:3]:
-            summary_html += f"<li>{date}: <span class='amount overspent'>{total:.2f} OMR</span></li>"
-        summary_html += "</ul></li>"
-    else:
-        summary_html += "<li>No days of overspending detected.</li>"
-
-    summary_html += "</ol></section>"
+    """
     return summary_html
 
 # ---------------- Upload Endpoint ----------------
@@ -175,34 +173,140 @@ def upload():
     <head>
         <meta charset="UTF-8">
         <title>AI Analyzer Report</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
+            html {{
+                font-size: 16px;
+            }}
+            @media (max-width: 1200px) {{
+                html {{ font-size: 15px; }}
+            }}
+            @media (max-width: 900px) {{
+                html {{ font-size: 14px; }}
+            }}
+            @media (max-width: 600px) {{
+                html {{ font-size: 13px; }}
+            }}
+            @media (max-width: 400px) {{
+                html {{ font-size: 12px; }}
+            }}
             body {{
-                font-family: Arial, sans-serif;
-                background: #f4f4f4;
-                color: #222;
-                padding: 20px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                background: #f7f9fa;
+                color: #212b36;
+                margin: 0;
+                padding: 0;
             }}
             .container {{
-                max-width: 700px;
-                margin: auto;
+                max-width: 780px;
+                margin: 36px auto 30px auto;
                 background: #fff;
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                padding: 2.0rem 2.2rem;
+                border-radius: 12px;
+                box-shadow: 0 4px 18px rgba(50,60,70,0.09), 0 1.5px 4px rgba(0,0,0,0.04);
             }}
-            h1 {{ color: #355c7d; }}
-            .success {{ color: green; font-weight: bold; }}
-            .fail {{ color: red; font-weight: bold; }}
-            .amount {{ color: #333; font-weight: bold; }}
-            .overspent {{ color: red; font-weight: bold; }}
-            .date, .compare {{ color: #888; font-size: 0.9em; }}
+            h1 {{
+                color: #355c7d;
+                font-size: 2.1rem;
+                letter-spacing: 0.01em;
+                margin-bottom: 1.8rem;
+                margin-top: 0.4rem;
+                font-weight: 600;
+                border-bottom: 2px solid #e9eef3;
+                padding-bottom: 0.6rem;
+            }}
+            h2 {{
+                font-size: 1.45rem;
+                color: #2d5e9e;
+                margin-top: 0.2rem;
+                margin-bottom: 1.2rem;
+                font-weight: 600;
+                letter-spacing: 0.01em;
+            }}
+            .highlights-section {{
+                margin-bottom: 1.6rem;
+            }}
+            .highlight-block {{
+                background: #f2f7fb;
+                border-radius: 8px;
+                padding: 1.15rem 1.3rem 1.1rem 1.3rem;
+                margin-bottom: 1.2rem;
+                box-shadow: 0 1px 3px rgba(44,62,80,0.04);
+            }}
+            .highlight-title {{
+                font-size: 1.03rem;
+                margin: 0.8em 0 0.7em 0;
+                color: #28466d;
+                font-weight: 500;
+                letter-spacing: 0.01em;
+            }}
+            .highlight-list {{
+                margin-left: 0.5em;
+                margin-bottom: 1.1em;
+                padding-left: 1.1em;
+            }}
+            .highlight-list > li {{
+                margin-bottom: 0.8em;
+            }}
+            .section-label {{
+                font-weight: 600;
+                color: #3a4256;
+                letter-spacing: 0.01em;
+            }}
+            .sublist {{
+                margin: 0.2em 0 0.2em 0.6em;
+                padding-left: 1.1em;
+                list-style-type: disc;
+            }}
+            .sublist li {{
+                margin-bottom: 0.2em;
+                line-height: 1.7;
+                font-size: 1em;
+            }}
+            .item-label {{
+                color: #394960;
+                font-weight: 500;
+            }}
+            .amount {{
+                color: #336699;
+                font-weight: 600;
+                margin-left: 0.15em;
+                letter-spacing: 0.01em;
+            }}
+            .hint {{
+                font-size: 0.93em;
+                color: #888;
+                margin-top: 1.4em;
+                padding-left: 0.2em;
+            }}
+            .footer {{
+                font-size: 0.98rem;
+                color: #5a6f89;
+                border-top: 1.5px solid #e9eef3;
+                margin-top: 2.4rem;
+                padding-top: 1.2rem;
+                text-align: left;
+            }}
+            @media (max-width: 600px) {{
+                .container {{
+                    padding: 1.2rem 0.7rem;
+                }}
+                h1, h2 {{
+                    font-size: 1.1rem;
+                }}
+                .highlight-title, .section-label {{
+                    font-size: 0.99rem;
+                }}
+                .footer {{
+                    font-size: 0.93rem;
+                }}
+            }}
         </style>
     </head>
     <body>
         <div class="container">
             <h1>AI Analyzer Report</h1>
             {summary_html}
-            <hr>
             <div class="footer">
                 <b>Last uploaded DB:</b> {file.filename}<br>
                 <b>Generated:</b> {timestamp}
