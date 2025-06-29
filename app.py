@@ -92,6 +92,24 @@ def analyze_db(db_path, filename):
         last7_budget_ids = get_last_n_budget_ids(cur, 7)
         X = len(all_budget_ids)
 
+        # -- Saving Summary Calculations --
+        # Overall (All records)
+        cur.execute("SELECT SUM(planBudget * 0.2), SUM(saving) FROM daily_budget")
+        row = cur.fetchone()
+        overall_goal_savings = row[0] if row and row[0] is not None else 0
+        overall_total_savings = row[1] if row and row[1] is not None else 0
+
+        # Last 7 records
+        cur.execute(
+            "SELECT SUM(planBudget * 0.2), SUM(saving) FROM daily_budget WHERE id IN ({seq})".format(
+                seq=','.join(['?']*len(last7_budget_ids))
+            ),
+            last7_budget_ids if last7_budget_ids else [-1]
+        )
+        row7 = cur.fetchone()
+        last7_goal_savings = row7[0] if row7 and row7[0] is not None else 0
+        last7_total_savings = row7[1] if row7 and row7[1] is not None else 0
+
         # For overall (all records)
         all_top_categories = get_top_categories(cur, all_budget_ids, 3) if all_budget_ids else []
         all_top_subtasks = get_top_subtasks(cur, all_budget_ids, 3) if all_budget_ids else []
@@ -108,9 +126,45 @@ def analyze_db(db_path, filename):
         all_top_subtasks = []
         last7_top_categories = []
         last7_top_subtasks = []
+        overall_goal_savings = 0
+        overall_total_savings = 0
+        last7_goal_savings = 0
+        last7_total_savings = 0
 
-    # Section: Highlights (removed the bottom statement about (X) and file path)
+    # --- Saving Summary Section ---
+    saving_html = f"""
+    <section class="saving-section">
+      <h2>Saving Summary</h2>
+      <div class="saving-block">
+        <p class="saving-title"><b>Overall savings across the last ({X}) records</b></p>
+        <ul class="saving-list">
+          <li>
+            <span class="section-label">Overall Total Goal Savings</span>
+            <span class="amount">({overall_goal_savings:.2f} OMR)</span>
+          </li>
+          <li>
+            <span class="section-label">Overall Total Savings</span>
+            <span class="amount">({overall_total_savings:.2f} OMR)</span>
+          </li>
+        </ul>
+        <p class="saving-title"><b>Your savings in the last 7 records</b></p>
+        <ul class="saving-list">
+          <li>
+            <span class="section-label">Total Goal Savings</span>
+            <span class="amount">({last7_goal_savings:.2f} OMR)</span>
+          </li>
+          <li>
+            <span class="section-label">Total Savings</span>
+            <span class="amount">({last7_total_savings:.2f} OMR)</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+    """
+
+    # --- Highlights Section (unchanged except moved below Savings) ---
     summary_html = f"""
+    {saving_html}
     <section class="highlights-section">
       <h2>Highlights</h2>
       <div class="highlight-block">
@@ -271,13 +325,31 @@ def upload():
                 margin-left: 0.15em;
                 letter-spacing: 0.01em;
             }}
-            .footer {{
-                font-size: 0.98rem;
-                color: #5a6f89;
-                border-top: 1.5px solid #e9eef3;
-                margin-top: 2.4rem;
-                padding-top: 1.2rem;
-                text-align: left;
+            /* Saving Summary styles */
+            .saving-section {{
+                margin-bottom: 1.8rem;
+            }}
+            .saving-block {{
+                background: #f5fbe9;
+                border-radius: 8px;
+                padding: 1.15rem 1.3rem 1.1rem 1.3rem;
+                margin-bottom: 1.2rem;
+                box-shadow: 0 1px 3px rgba(44,62,80,0.04);
+            }}
+            .saving-title {{
+                font-size: 1.03rem;
+                margin: 0.8em 0 0.7em 0;
+                color: #3d5d2d;
+                font-weight: 500;
+                letter-spacing: 0.01em;
+            }}
+            .saving-list {{
+                margin-left: 0.5em;
+                margin-bottom: 1.1em;
+                padding-left: 1.1em;
+            }}
+            .saving-list > li {{
+                margin-bottom: 0.8em;
             }}
             @media (max-width: 600px) {{
                 .container {{
@@ -286,12 +358,20 @@ def upload():
                 h1, h2 {{
                     font-size: 1.1rem;
                 }}
-                .highlight-title, .section-label {{
+                .highlight-title, .section-label, .saving-title {{
                     font-size: 0.99rem;
                 }}
                 .footer {{
                     font-size: 0.93rem;
                 }}
+            }}
+            .footer {{
+                font-size: 0.98rem;
+                color: #5a6f89;
+                border-top: 1.5px solid #e9eef3;
+                margin-top: 2.4rem;
+                padding-top: 1.2rem;
+                text-align: left;
             }}
         </style>
     </head>
